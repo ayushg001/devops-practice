@@ -1,0 +1,23 @@
+# backend-service.yaml — connects to your backend Pods
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: test-devops
+spec:
+  selector:
+    app : test-devops-backend
+  ports:
+    - protocol: TCP
+      port: 5000
+      targetPort: 5000
+
+#       Field	Meaning
+# apiVersion: v1	             Uses the core Kubernetes API.
+# kind: Service	               Creates a Service.
+# metadata.name: backend	     Names the Service backend.
+# type: ClusterIP              Exposes it internally within the cluster.
+# selector	                   Finds Pods labelled app: test-devops-backend.
+# protocol: TCP	               Uses TCP networking.
+# port: 5000	                 Port clients connect to on the Service.
+# targetPort: 5000	           Port receiving traffic inside the selected Pod.

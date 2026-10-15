@@ -1,0 +1,43 @@
+# backend-deployment.yaml — runs your backend
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: test-devops
+  labels:
+    app: test-devops-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: test-devops-frontend
+  template:
+    metadata:
+      labels:
+        app: test-devops-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: ayushg001/test-devops-frontend:1.1
+          ports:
+            - containerPort: 5173
+
+#Field	Explanation
+# apiVersion:apps/v1                 API version used for Deployments.
+# kind:Deployment	                   Tells Kubernetes to manage your frontend Pods.
+# metadata.name:frontend	             Names this Deployment frontend.
+# metadata.labels	                   Adds identifying metadata to the Deployment itself.
+# replicas:2                      	 Asks Kubernetes to maintain two frontend Pods.
+# selector.matchLabels 	             Defines which Pods this Deployment manages.
+# template	                         The blueprint Kubernetes uses to create each Pod.
+# template.metadata.labels           Labels attached to every Pod created by this Deployment.
+# containers                         Lists the containers inside each Pod.
+# image                              Docker image Kubernetes should download and run.
+# containerPort: 3000                Documents the port your Node.js app listens on inside the container.
+
+
+# If one Pod fails, Kubernetes attempts to replace it. If both are healthy, 
+# a correctly configured Service can distribute traffic between them.
+
+# One important condition: your frontend must support running in multiple instances. 
+# If it stores important state only in process memory, each replica has its own separate state.

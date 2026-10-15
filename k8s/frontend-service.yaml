@@ -1,0 +1,23 @@
+# frontend-service.yaml — connects to your frontend Pods
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: test-devops
+spec:
+  selector:
+    app : test-devops-frontend
+  ports:
+    - protocol: TCP
+      port: 5173
+      targetPort: 5173
+
+#       Field	Meaning
+# apiVersion: v1	             Uses the core Kubernetes API.
+# kind: Service	               Creates a Service.
+# metadata.name: frontend	     Names the Service frontend.
+# type: ClusterIP              Exposes it internally within the cluster.
+# selector	                   Finds Pods labelled app: test-devops-frontend.
+# protocol: TCP	               Uses TCP networking.
+# port: 5173	                 Port clients connect to on the Service.
+# targetPort: 5173	           Port receiving traffic inside the selected Pod.

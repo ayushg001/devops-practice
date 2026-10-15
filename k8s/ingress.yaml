@@ -1,0 +1,32 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: test-ingress
+  namespace: test-devops 
+spec:
+  ingressClassName: nginx
+  # Kubernetes traffic manager
+  rules:
+  - http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: backend
+            port:
+              number: 5000
+      
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend
+            port:
+              number: 5173
+
+
+# apiVersion: specifies which Kubernetes API version you're using for Ingress.
+# kind: Ingress: tells Kubernetes you want to create an Ingress resource.
+# name: test-ingress: the name of your Ingress resource.
+# namespace: test-devops: the Namespace in which this Ingress will exist.

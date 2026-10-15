@@ -32,3 +32,5 @@ coverage/
 
 # Backend uploads (if generated at runtime)
 backend/uploads/
+private
+private.pub
