@@ -1,0 +1,111 @@
+
+  name: MERN CI/CD Pipeline
+
+  # Run when code is pushed to main, or manually.
+  on:
+    push:
+      branches:
+        - main
+    workflow_dispatch:
+
+  # Permissions needed for this workflow.
+  permissions:
+    contents: read
+
+  jobs:
+    build-and-deploy:
+      # GitHub provides a temporary Ubuntu machine.
+      runs-on: ubuntu-latest
+
+      steps:
+        # Step 1: Download our repository code.
+        - name: Checkout code
+          uses: actions/checkout@v4    
+          # downloads the repository's code into the runner
+
+        # Step 2: Build the frontend to catch build errors.
+        - name: Build frontend
+          run: |
+            cd frontend
+            npm ci
+            npm run build
+        # If the build fails, the workflow stops at this step. This catches many frontend errors before deployment. add TESTS later
+
+        # Step 3: Build the backend Docker image.
+        - name: Build backend image
+          run: |
+            docker build \
+              -t ayushg001/test-devops-backend:${{ github.sha }} \
+              ./backend
+              
+  # ${{ github.sha }} is a GitHub Actions expression that supplies the commit's full SHA, a unique identifier for that revision of your code.
+
+
+        # Step 4: Build the frontend Docker image.
+        - name: Build frontend image
+          run: |
+            docker build \
+              -t ayushg001/test-devops-frontend:${{ github.sha }} \
+              ./frontend
+
+  # If you deploy latest every time, it's harder to identify which exact version is running. A commit SHA gives every build its own tag, making rollbacks and debugging easier.
+
+        # Step 5: Log in to Docker Hub.
+        - name: Login to Docker Hub
+          uses: docker/login-action@v3
+          with:
+            username: ${{ secrets.DOCKERHUB_USERNAME }}
+            password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+        # Step 6: Upload both images to Docker Hub.
+        - name: Push Docker images
+          run: |
+            docker push ayushg001/test-devops-backend:${{ github.sha }}
+            docker push ayushg001/test-devops-frontend:${{ github.sha }}
+
+        # Step 7: Connect to the Linux server and deploy.
+        - name: Deploy to Kubernetes
+          uses: appleboy/ssh-action@v1.2.0
+          env:
+            IMAGE_TAG: ${{ github.sha }}
+          with:
+            host: ${{ secrets.SSH_HOST }}
+            username: ${{ secrets.SSH_USERNAME }}
+            key: ${{ secrets.SSH_PRIVATE_KEY }}
+            envs: IMAGE_TAG
+            script: |
+              set -e
+
+              kubectl set image deployment/backend \
+                backend=ayushg001/test-devops-backend:$IMAGE_TAG \
+                -n test-devops
+
+              kubectl set image deployment/frontend \
+                frontend=ayushg001/test-devops-frontend:$IMAGE_TAG \
+                -n test-devops           
+
+              kubectl rollout status deployment/backend \
+                -n test-devops --timeout=180s
+
+              kubectl rollout status deployment/frontend \
+                -n test-devops --timeout=180s
+
+  #  - set -e              stops the script when a command fails.
+  # - set image            changes the image used by a container in an existing workload.
+  # - deployment/backend   identifies the Deployment named backend.
+  # - backend=...          identifies the container named backend and the new image it should use.
+  # - -n test-devops       selects your existing Kubernetes namespace.
+
+  # Kubernetes then creates replacement Pods using the new image and gradually replaces the old Pods, according to the Deployment's rollout strategy.  
+
+  # ->
+  # wait for each Deployment to finish rolling out, with a maximum wait of 180 seconds per command. If a rollout doesn't complete successfully, the workflow reports a failure rather than silently treating the deployment as successful.
+
+
+
+  # Continuous Integration (CI)
+  # The workflow checks out the code, builds the frontend, and builds both Docker images. Build errors stop the pipeline before the images are published.
+
+  # Continuous Delivery / Deployment (CD)
+  # The workflow pushes the images to Docker Hub, connects to your Linux server, updates Kubernetes, and waits for the rollouts to complete.
+

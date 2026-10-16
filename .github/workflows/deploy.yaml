@@ -1,111 +1,99 @@
 
-name: MERN CI/CD Pipeline
+name: MERN CI Pipeline
 
-# Run when code is pushed to main, or manually.
 on:
   push:
     branches:
       - main
   workflow_dispatch:
 
-# Permissions needed for this workflow.
 permissions:
   contents: read
 
 jobs:
-  build-and-deploy:
-    # GitHub provides a temporary Ubuntu machine.
+  build-and-publish:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Download our repository code.
+      # 1. Download application source code
       - name: Checkout code
-        uses: actions/checkout@v4    
-        # downloads the repository's code into the runner
+        uses: actions/checkout@v4
 
-      # Step 2: Build the frontend to catch build errors.
+      # 2. Verify the frontend builds successfully
       - name: Build frontend
         run: |
           cd frontend
           npm ci
           npm run build
-      # If the build fails, the workflow stops at this step. This catches many frontend errors before deployment. add TESTS later
 
-      # Step 3: Build the backend Docker image.
+      # 3. Build both Docker images with a unique tag
       - name: Build backend image
         run: |
           docker build \
             -t ayushg001/test-devops-backend:${{ github.sha }} \
             ./backend
-            
-# ${{ github.sha }} is a GitHub Actions expression that supplies the commit's full SHA, a unique identifier for that revision of your code.
 
-
-      # Step 4: Build the frontend Docker image.
       - name: Build frontend image
         run: |
           docker build \
             -t ayushg001/test-devops-frontend:${{ github.sha }} \
             ./frontend
 
-# If you deploy latest every time, it's harder to identify which exact version is running. A commit SHA gives every build its own tag, making rollbacks and debugging easier.
-
-      # Step 5: Log in to Docker Hub.
+      # 4. Authenticate with Docker Hub
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Step 6: Upload both images to Docker Hub.
+      # 5. Publish both images
       - name: Push Docker images
         run: |
           docker push ayushg001/test-devops-backend:${{ github.sha }}
           docker push ayushg001/test-devops-frontend:${{ github.sha }}
 
-      # Step 7: Connect to the Linux server and deploy.
-      - name: Deploy to Kubernetes
-        uses: appleboy/ssh-action@v1.2.0
+      # 6. Clone the GitOps repository and update image tags
+      - name: Update GitOps repository
         env:
-          IMAGE_TAG: ${{ github.sha }}
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: IMAGE_TAG
-          script: |
-            set -e
+          GITOPS_TOKEN: ${{ secrets.GITOPS_TOKEN }}
+          GITOPS_REPO: ${{ secrets.GITOPS_REPO }}
+          BACKEND_IMAGE: ayushg001/test-devops-backend:${{ github.sha }}
+          FRONTEND_IMAGE: ayushg001/test-devops-frontend:${{ github.sha }}
+        run: |
+          set -e
 
-            kubectl set image deployment/backend \
-              backend=ayushg001/test-devops-backend:$IMAGE_TAG \
-              -n test-devops
+          git clone \
+            "https://x-access-token:${GITOPS_TOKEN}@github.com/${GITOPS_REPO}.git" \
+            gitops
 
-            kubectl set image deployment/frontend \
-              frontend=ayushg001/test-devops-frontend:$IMAGE_TAG \
-              -n test-devops           
+          # 6.1 Install yq to edit YAML safely
 
-            kubectl rollout status deployment/backend \
-              -n test-devops --timeout=180s
+          sudo wget -qO /usr/local/bin/yq \
+            https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
 
-            kubectl rollout status deployment/frontend \
-              -n test-devops --timeout=180s
+          # 6.2 Update the backend container image
+          yq -i \
+            '(.spec.template.spec.containers[] | select(.name == "backend") | .image) = strenv(BACKEND_IMAGE)' \
+            gitops/apps/devops/backend-deployment.yaml
 
-#  - set -e              stops the script when a command fails.
-# - set image            changes the image used by a container in an existing workload.
-# - deployment/backend   identifies the Deployment named backend.
-# - backend=...          identifies the container named backend and the new image it should use.
-# - -n test-devops       selects your existing Kubernetes namespace.
+          # 6.3 Update the frontend container image
+          yq -i \
+            '(.spec.template.spec.containers[] | select(.name == "frontend") | .image) = strenv(FRONTEND_IMAGE)' \
+            gitops/apps/devops/frontend-deployment.yaml
 
-# Kubernetes then creates replacement Pods using the new image and gradually replaces the old Pods, according to the Deployment's rollout strategy.  
+          # 6.4 Commit and push the desired-state change
+          cd gitops
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-# ->
-# wait for each Deployment to finish rolling out, with a maximum wait of 180 seconds per command. If a rollout doesn't complete successfully, the workflow reports a failure rather than silently treating the deployment as successful.
+          git add apps/devops/backend-deployment.yaml
+          git add apps/devops/frontend-deployment.yaml
 
+          if git diff --cached --quiet; then
+            echo "No GitOps changes to commit."
+            exit 0
+          fi
 
-
-# Continuous Integration (CI)
-# The workflow checks out the code, builds the frontend, and builds both Docker images. Build errors stop the pipeline before the images are published.
-
-# Continuous Delivery / Deployment (CD)
-# The workflow pushes the images to Docker Hub, connects to your Linux server, updates Kubernetes, and waits for the rollouts to complete.
-
+          git commit -m "Deploy application ${GITHUB_SHA}"
+          git push origin HEAD
