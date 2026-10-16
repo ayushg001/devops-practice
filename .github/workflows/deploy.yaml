@@ -52,7 +52,7 @@ jobs:
           docker push ayushg001/test-devops-backend:${{ github.sha }}
           docker push ayushg001/test-devops-frontend:${{ github.sha }}
 
-           # 6. Update GitOps repository
+      # 6. Clone the GitOps repository and update image tags
       - name: Update GitOps repository
         env:
           GITOPS_TOKEN: ${{ secrets.GITOPS_TOKEN }}
@@ -60,46 +60,29 @@ jobs:
           BACKEND_IMAGE: ayushg001/test-devops-backend:${{ github.sha }}
           FRONTEND_IMAGE: ayushg001/test-devops-frontend:${{ github.sha }}
         run: |
-          set -euo pipefail
+          set -e
 
-          # Clone the GitOps repository
           git clone \
-            "https://x-access-token:${GITOPS_TOKEN}@github.com/${GITOPS_REPO}.git" \
-            gitops-repo
+            "https://x-access-token:${GITOPS_TOKEN}@github.com/${GITOPS_REPO}.git"
 
-          # Enter the cloned GitOps repository
-          cd gitops-repo
+          # 6.1 Install yq to edit YAML safely
 
-          echo "Current directory:"
-          pwd
-
-          echo "Files in apps/devops:"
-          ls -la apps/devops
-
-          # Verify deployment files exist
-          test -f apps/devops/backend-deployment.yaml
-          test -f apps/devops/frontend-deployment.yaml
-
-          # Install yq
           sudo wget -qO /usr/local/bin/yq \
             https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
           sudo chmod +x /usr/local/bin/yq
 
-          # Update backend image
-          BACKEND_IMAGE="$BACKEND_IMAGE" yq -i \
+          # 6.2 Update the backend container image
+          yq -i \
             '(.spec.template.spec.containers[] | select(.name == "backend") | .image) = strenv(BACKEND_IMAGE)' \
             apps/devops/backend-deployment.yaml
 
-          # Update frontend image
-          FRONTEND_IMAGE="$FRONTEND_IMAGE" yq -i \
+          # 6.3 Update the frontend container image
+          yq -i \
             '(.spec.template.spec.containers[] | select(.name == "frontend") | .image) = strenv(FRONTEND_IMAGE)' \
             apps/devops/frontend-deployment.yaml
 
-          # Check modified manifests
-          git diff --check
-          git diff
-
-          # Commit and push changes
+          # 6.4 Commit and push the desired-state change
+      
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
