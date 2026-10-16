@@ -74,12 +74,12 @@ jobs:
           # 6.2 Update the backend container image
           yq -i \
             '(.spec.template.spec.containers[] | select(.name == "backend") | .image) = strenv(BACKEND_IMAGE)' \
-            gitops/apps/devops/backend-deployment.yaml
+            apps/devops/backend-deployment.yaml
 
           # 6.3 Update the frontend container image
           yq -i \
             '(.spec.template.spec.containers[] | select(.name == "frontend") | .image) = strenv(FRONTEND_IMAGE)' \
-            gitops/apps/devops/frontend-deployment.yaml
+            apps/devops/frontend-deployment.yaml
 
           # 6.4 Commit and push the desired-state change
       
