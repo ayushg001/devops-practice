@@ -60,34 +60,45 @@ jobs:
           BACKEND_IMAGE: ayushg001/test-devops-backend:${{ github.sha }}
           FRONTEND_IMAGE: ayushg001/test-devops-frontend:${{ github.sha }}
         run: |
-          set -e
+          set -euo pipefail
 
+          # Normalize repository name if GITOPS_REPO contains owner prefix or .git suffix
+          REPO_NAME="${GITOPS_REPO#ayushg001/}"
+          REPO_NAME="${REPO_NAME%.git}"
+
+          # Clone GitOps repository into a dedicated directory
           git clone \
-            "https://x-access-token:${GITOPS_TOKEN}@github.com/ayushg001/${GITOPS_REPO}.git"
+            "https://x-access-token:${GITOPS_TOKEN}@github.com/ayushg001/${REPO_NAME}.git" \
+            gitops-repo
 
-          # 6.1 Install yq to edit YAML safely
+          cd gitops-repo
 
-          sudo wget -qO /usr/local/bin/yq \
-            https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
-          sudo chmod +x /usr/local/bin/yq
+          # 6.1 Install yq to edit YAML safely if not already installed
+          if ! command -v yq >/dev/null 2>&1; then
+            sudo wget -qO /usr/local/bin/yq \
+              https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
+            sudo chmod +x /usr/local/bin/yq
+          fi
 
           # 6.2 Update the backend container image
           yq -i \
-            '(.spec.template.spec.containers[] | select(.name == "backend") | .image) = strenv(BACKEND_IMAGE)' \
+            '(.spec.template.spec.containers[] | select(.name == "backend")).image = strenv(BACKEND_IMAGE)' \
             apps/devops/backend-deployment.yaml
 
           # 6.3 Update the frontend container image
           yq -i \
-            '(.spec.template.spec.containers[] | select(.name == "frontend") | .image) = strenv(FRONTEND_IMAGE)' \
+            '(.spec.template.spec.containers[] | select(.name == "frontend")).image = strenv(FRONTEND_IMAGE)' \
             apps/devops/frontend-deployment.yaml
 
+          # Display changes for CI verification
+          echo "Updated GitOps manifests:"
+          git diff
+
           # 6.4 Commit and push the desired-state change
-      
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add apps/devops/backend-deployment.yaml
-          git add apps/devops/frontend-deployment.yaml
+          git add apps/devops/backend-deployment.yaml apps/devops/frontend-deployment.yaml
 
           if git diff --cached --quiet; then
             echo "No GitOps changes to commit."
