@@ -83,7 +83,7 @@ jobs:
             gitops/apps/devops/frontend-deployment.yaml
 
           # 6.4 Commit and push the desired-state change
-          cd gitops
+      
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
