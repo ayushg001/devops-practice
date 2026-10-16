@@ -63,7 +63,7 @@ jobs:
           set -e
 
           git clone \
-            "https://x-access-token:${GITOPS_TOKEN}@github.com/${GITOPS_REPO}.git"
+            "https://x-access-token:${GITOPS_TOKEN}@github.com/devops-practice-cd.git"
 
           # 6.1 Install yq to edit YAML safely
 
