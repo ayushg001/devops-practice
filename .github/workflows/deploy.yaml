@@ -18,6 +18,8 @@ jobs:
       # 1. Download application source code
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       # 2. Verify the frontend builds successfully
       - name: Build frontend
@@ -62,16 +64,18 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Normalize repository name if GITOPS_REPO contains owner prefix or .git suffix
-          REPO_NAME="${GITOPS_REPO#ayushg001/}"
-          REPO_NAME="${REPO_NAME%.git}"
+          # Clear any inherited extraheaders from actions/checkout
+          git config --global --unset-all http.https://github.com/.extraheader 2>/dev/null || true
 
           # Clone GitOps repository into a dedicated directory
           git clone \
-            "https://x-access-token:${GITOPS_TOKEN}@github.com/ayushg001/${REPO_NAME}.git" \
+            "https://x-access-token:${GITOPS_TOKEN}@github.com/ayushg001/${GITOPS_REPO}.git" \
             gitops-repo
 
           cd gitops-repo
+
+          git config --local --unset-all http.https://github.com/.extraheader 2>/dev/null || true
+          git remote set-url origin "https://x-access-token:${GITOPS_TOKEN}@github.com/ayushg001/${GITOPS_REPO}.git"
 
           # 6.1 Install yq to edit YAML safely if not already installed
           if ! command -v yq >/dev/null 2>&1; then
