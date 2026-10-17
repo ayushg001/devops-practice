@@ -19,7 +19,25 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. Run Trivy scan on the source code
+       
+      # 2. Analyze source code with SonarQube Cloud
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v6
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      # 3. Stop the pipeline if the Quality Gate fails
+      - name: SonarQube Quality Gate
+        id: sonarqube-quality-gate-check
+        uses: SonarSource/sonarqube-quality-gate-action@v1
+        timeout-minutes: 5
+        with:
+          pollingTimeoutSec: 300
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+ 
+
+      # 4. Run Trivy scan on the source code
       - name: Trivy scan - Source
         uses: aquasecurity/trivy-action@v0.36.0
         with:
@@ -31,14 +49,14 @@ jobs:
           exit-code: '0'
 
 
-      # 3. Verify the frontend builds successfully
+      # 5. Verify the frontend builds successfully
       - name: Build frontend
         run: |
           cd frontend
           npm ci
           npm run build
 
-      # 4. Build both Docker images with a unique tag
+      # 6. Build both Docker images with a unique tag
       - name: Build backend image
         run: |
           docker build \
@@ -52,7 +70,7 @@ jobs:
             ./frontend
 
             
-      # 5. Scan backend Docker image
+      # 7. Scan backend Docker image
       - name: Trivy scan - Backend
         uses: aquasecurity/trivy-action@v0.36.0
         with:
@@ -63,7 +81,7 @@ jobs:
           ignore-unfixed: true
           exit-code: '0'
 
-      # 6. Scan frontend Docker image
+      # 8. Scan frontend Docker image
       - name: Trivy scan - Frontend
         uses: aquasecurity/trivy-action@v0.36.0
         with:
@@ -75,20 +93,20 @@ jobs:
           exit-code: '0'
 
 
-      # 7. Authenticate with Docker Hub
+      # 9. Authenticate with Docker Hub
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 8. Publish both images
+      # 10. Publish both images
       - name: Push Docker images
         run: |
           docker push ayushg001/test-devops-backend:${{ github.sha }}
           docker push ayushg001/test-devops-frontend:${{ github.sha }}
 
-      # 9. Clone the GitOps repository and update image tags
+      # 11. Clone the GitOps repository and update image tags
       - name: Update GitOps repository
         env:
           GITOPS_TOKEN: ${{ secrets.GITOPS_TOKEN }}
@@ -111,19 +129,19 @@ jobs:
           git config --local --unset-all http.https://github.com/.extraheader 2>/dev/null || true
           git remote set-url origin "https://x-access-token:${GITOPS_TOKEN}@github.com/ayushg001/${GITOPS_REPO}.git"
 
-          # 9.1 Install yq to edit YAML safely if not already installed
+          # 11.1 Install yq to edit YAML safely if not already installed
           if ! command -v yq >/dev/null 2>&1; then
             sudo wget -qO /usr/local/bin/yq \
               https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
             sudo chmod +x /usr/local/bin/yq
           fi
 
-          # 9.2 Update the backend container image
+          # 11.2 Update the backend container image
           yq -i \
             '(.spec.template.spec.containers[] | select(.name == "backend")).image = strenv(BACKEND_IMAGE)' \
             apps/devops/backend-deployment.yaml
 
-          # 9.3 Update the frontend container image
+          # 11.3 Update the frontend container image
           yq -i \
             '(.spec.template.spec.containers[] | select(.name == "frontend")).image = strenv(FRONTEND_IMAGE)' \
             apps/devops/frontend-deployment.yaml
@@ -132,7 +150,7 @@ jobs:
           echo "Updated GitOps manifests:"
           git diff
 
-          # 9.4 Commit and push the desired-state change
+          # 11.4 Commit and push the desired-state change
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
