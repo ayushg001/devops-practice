@@ -24,6 +24,23 @@ spec:
           envFrom:
             - configMapRef:
                 name: test-configmap
+          env:
+          - name: DB_HOST
+            value: devops-postgres-rw
+          - name: DB_PORT
+            value: "5432"
+          - name: DB_NAME
+            value: appdb
+          - name: DB_USER
+            valueFrom:
+              secretKeyRef:
+                name: app-db-secret
+                key: username
+          - name: DB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: app-db-secret
+                key: password
 
 #Field	Explanation
 # apiVersion:apps/v1                 API version used for Deployments.

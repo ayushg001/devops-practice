@@ -1,27 +1,33 @@
-import express from "express";
-import jokes from "./jokes.js";
-import cors from "cors";
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import { initDB } from './config/db.js';
+import todoRoutes from './routes/todoRoutes.js';
+import jokes from './jokes.js';
+
+dotenv.config();
+
 const app = express();
-
 const PORT = process.env.PORT || 5000;
+
 app.use(cors());
+app.use(express.json());
 
-app.get("/health" , (req,res) => {
-    res.status(200).json({ status : "ok"});
-})
+// Simple Todo Routes (MVC)
+app.use('/api/todos', todoRoutes);
 
-app.get("/" , (req,res) =>{
-    return res.status(200).json({ message : "hello from docker "})
-})
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
 
-app.get("/api/jokes", async (req, res) => {
-    await new Promise( (resolve) => setTimeout(resolve, 2000) );
-    const random = jokes[Math.floor(Math.random() * jokes.length)];
-    res.status(200).json({"joke" : random});
-})
+// Preserved jokes route for existing tests/pipelines
+app.get('/api/jokes', (req, res) => {
+  const random = jokes[Math.floor(Math.random() * jokes.length)];
+  res.json({ joke: random });
+});
 
-
-//Why 0.0.0.0? A server listening only on localhost inside a container may not accept traffic coming from outside that container.
-app.listen(PORT, "0.0.0.0", () => {
+app.listen(PORT, '0.0.0.0', async () => {
   console.log(`Backend running on port ${PORT}`);
+  await initDB();
 });
