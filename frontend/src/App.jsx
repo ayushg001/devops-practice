@@ -53,13 +53,24 @@ export default function App() {
 
   // Toggle todo completed status
   const handleToggle = async (todo) => {
+    const rawId = String(todo?.id ?? '');
+    if (!/^\d+$/.test(rawId)) {
+      return;
+    }
+    const todoId = Number.parseInt(rawId, 10);
+    if (!Number.isInteger(todoId) || todoId <= 0) {
+      return;
+    }
+
     try {
-      const safeId = encodeURIComponent(todo.id);
-      const res = await fetch(`/api/todos/${safeId}`, {
+      const res = await fetch(`/api/todos/${todoId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ completed: !todo.completed }),
       });
+      if (!res.ok) {
+        throw new Error(`Failed to update todo: ${res.statusText}`);
+      }
       const updated = await res.json();
       setTodos((prevTodos) => prevTodos.map((t) => (t.id === todo.id ? updated : t)));
     } catch (err) {
@@ -69,9 +80,20 @@ export default function App() {
 
   // Delete a todo
   const handleDelete = async (id) => {
+    const rawId = String(id ?? '');
+    if (!/^\d+$/.test(rawId)) {
+      return;
+    }
+    const todoId = Number.parseInt(rawId, 10);
+    if (!Number.isInteger(todoId) || todoId <= 0) {
+      return;
+    }
+
     try {
-      const safeId = encodeURIComponent(id);
-      await fetch(`/api/todos/${safeId}`, { method: 'DELETE' });
+      const res = await fetch(`/api/todos/${todoId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        throw new Error(`Failed to delete todo: ${res.statusText}`);
+      }
       setTodos((prevTodos) => prevTodos.filter((t) => t.id !== id));
     } catch (err) {
       console.error('Failed to delete todo:', err);
