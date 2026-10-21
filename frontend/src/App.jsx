@@ -6,21 +6,30 @@ export default function App() {
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
 
-  // Fetch all todos
-  const fetchTodos = async () => {
-    try {
-      const res = await fetch('/api/todos');
-      const data = await res.json();
-      setTodos(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error('Failed to fetch todos:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchTodos();
+    let ignore = false;
+
+    const loadTodos = async () => {
+      try {
+        const res = await fetch('/api/todos');
+        const data = await res.json();
+        if (!ignore) {
+          setTodos(Array.isArray(data) ? data : []);
+        }
+      } catch (err) {
+        console.error('Failed to fetch todos:', err);
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadTodos();
+
+    return () => {
+      ignore = true;
+    };
   }, []);
 
   // Add a new todo
@@ -45,13 +54,14 @@ export default function App() {
   // Toggle todo completed status
   const handleToggle = async (todo) => {
     try {
-      const res = await fetch(`/api/todos/${todo.id}`, {
+      const safeId = encodeURIComponent(todo.id);
+      const res = await fetch(`/api/todos/${safeId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ completed: !todo.completed }),
       });
       const updated = await res.json();
-      setTodos(todos.map((t) => (t.id === todo.id ? updated : t)));
+      setTodos((prevTodos) => prevTodos.map((t) => (t.id === todo.id ? updated : t)));
     } catch (err) {
       console.error('Failed to update todo:', err);
     }
@@ -60,8 +70,9 @@ export default function App() {
   // Delete a todo
   const handleDelete = async (id) => {
     try {
-      await fetch(`/api/todos/${id}`, { method: 'DELETE' });
-      setTodos(todos.filter((t) => t.id !== id));
+      const safeId = encodeURIComponent(id);
+      await fetch(`/api/todos/${safeId}`, { method: 'DELETE' });
+      setTodos((prevTodos) => prevTodos.filter((t) => t.id !== id));
     } catch (err) {
       console.error('Failed to delete todo:', err);
     }
