@@ -26,20 +26,20 @@ spec:
                 name: test-configmap
           env:
           - name: DB_HOST
-            value: devops-postgres-rw
+            value: "devops-postgres-rw"
           - name: DB_PORT
             value: "5432"
           - name: DB_NAME
-            value: appdb
+            value: "app"
           - name: DB_USER
             valueFrom:
               secretKeyRef:
-                name: app-db-secret
+                name: devops-postgres-app
                 key: username
           - name: DB_PASSWORD
             valueFrom:
               secretKeyRef:
-                name: app-db-secret
+                name: devops-postgres-app
                 key: password
 
 #Field	Explanation

@@ -5,6 +5,7 @@ export const todoController = {
   async getTodos(req, res) {
     try {
       const todos = await todoModel.getAll();
+      console.log('Retrieved todos:', todos); // Log the retrieved todos
       res.json(todos);
     } catch (err) {
       res.status(500).json({ error: err.message });
@@ -19,6 +20,7 @@ export const todoController = {
         return res.status(400).json({ error: 'Title is required' });
       }
       const newTodo = await todoModel.create(title.trim());
+      console.log('Created new todo:', newTodo); // Log the created todo
       res.status(201).json(newTodo);
     } catch (err) {
       res.status(500).json({ error: err.message });
@@ -34,6 +36,7 @@ export const todoController = {
       if (!updated) {
         return res.status(404).json({ error: 'Todo not found' });
       }
+      console.log('Updated todo:', updated); // Log the updated todo
       res.json(updated);
     } catch (err) {
       res.status(500).json({ error: err.message });
@@ -48,6 +51,7 @@ export const todoController = {
       if (!deleted) {
         return res.status(404).json({ error: 'Todo not found' });
       }
+      console.log('Deleted todo:', deleted); // Log the deleted todo
       res.json({ message: 'Todo deleted successfully', id });
     } catch (err) {
       res.status(500).json({ error: err.message });

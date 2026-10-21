@@ -9,10 +9,9 @@ spec:
 
   bootstrap:
     initdb:
-      database: appdb
-      owner: appuser
-      secret:
-        name: app-db-secret
+      database: app
+      owner: app
 
   storage:
     size: 1Gi
+
